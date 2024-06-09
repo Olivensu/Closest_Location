@@ -1,113 +1,160 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { GoogleMap, LoadScript, Marker, Circle } from '@react-google-maps/api';
+import styled from '@emotion/styled';
+
+
+export function haversineDistance(lat1, lon1, lat2, lon2) {
+    const toRadians = (degree) => (degree * Math.PI) / 180;
+    const R = 6371; 
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; 
+}
+
+
+const locations = [
+    { "id": 1, "name": "Joe's Pizza", "latitude": 40.730610, "longitude": -73.935242 },
+    { "id": 2, "name": "The Burger Joint", "latitude": 34.052235, "longitude": -118.243683 },
+    { "id": 3, "name": "The Fish House", "latitude": 51.507351, "longitude": -0.127758 },
+    { "id": 4, "name": "Curry Palace", "latitude": 23.810331, "longitude": 90.412521 },
+    { "id": 5, "name": "Shawarma King", "latitude": 31.768318, "longitude": 35.21371 },
+    { "id": 6, "name": "Mumbai Spice", "latitude": 19.076090, "longitude": 72.877426 },
+    { "id": 7, "name": "Big Ben Pub", "latitude": 51.509865, "longitude": -0.118092 },
+    { "id": 8, "name": "Bengal Delight", "latitude": 22.572645, "longitude": 88.363892 },
+    { "id": 9, "name": "Le Gourmet", "latitude": 48.856613, "longitude": 2.352222 },
+    { "id": 10, "name": "South Indian Delight", "latitude": 13.082680, "longitude": 80.270721 },
+    { "id": 11, "name": "Delhi Darbar", "latitude": 28.704060, "longitude": 77.102493 },
+    { "id": 12, "name": "Peking Duck House", "latitude": 39.904202, "longitude": 116.407394 },
+    { "id": 13, "name": "Sushi World", "latitude": 35.689487, "longitude": 139.691711 },
+    { "id": 14, "name": "Golden Gate Grill", "latitude": 37.774929, "longitude": -122.419418 },
+    { "id": 15, "name": "Moscow Mule", "latitude": 55.755825, "longitude": 37.617298 },
+    { "id": 16, "name": "Berlin Brats", "latitude": 52.520008, "longitude": 13.404954 },
+    { "id": 17, "name": "Romeo's Pizza", "latitude": 41.902782, "longitude": 12.496366 },
+    { "id": 18, "name": "Sydney Seafood", "latitude": -33.868820, "longitude": 151.209290 },
+    { "id": 19, "name": "Brazilian BBQ", "latitude": -23.550520, "longitude": -46.633308 },
+    { "id": 20, "name": "LA Street Tacos", "latitude": 34.052235, "longitude": -118.243683 }
+];
+
+const mapContainerStyle = {
+    width: '100%',
+    height: '100vh',
+};
+
+const center = {
+    lat: 23.685,
+    lng: 90.3563,
+};
+
+const Sidebar = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 100%;
+  background: white;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 10;
+  background-color: seagreen;
+`;
+
+const ListItem = styled.div`
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+`;
+
+const ListHeader = styled.h2`
+  margin: 0 0 20px 0;
+  padding: 0;
+  font-size: 24px;
+`;
+
+const userMarkerIcon = {
+    url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+};
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    const [userLocation, setUserLocation] = useState(center);
+    const [closestLocations, setClosestLocations] = useState([]);
+
+    const updateClosestLocations = useCallback((lat, lng) => {
+        const distances = locations.map(location => ({
+            ...location,
+            distance: haversineDistance(lat, lng, location.latitude, location.longitude)
+        }));
+        distances.sort((a, b) => a.distance - b.distance);
+        setClosestLocations(distances.slice(0, 5));
+    }, []);
+
+    useEffect(() => {
+        updateClosestLocations(userLocation.lat, userLocation.lng);
+    }, [userLocation, updateClosestLocations]);
+
+    const handleDragEnd = (e) => {
+        const newLat = e.latLng.lat();
+        const newLng = e.latLng.lng();
+        setUserLocation({ lat: newLat, lng: newLng });
+        updateClosestLocations(newLat, newLng);
+    };
+
+    return (
+        <div style={{ position: 'relative', display: 'flex' }}>
+            <Sidebar>
+                <ListHeader><p className='font-bold'>Closest Locations</p></ListHeader>
+                {closestLocations.map(location => (
+                    <ListItem key={location.id}>
+                        <div className='bg-gray-200 p-5'>
+                            <h3 className='font-bold text-xl'>{location.name}</h3>
+                            <p>Distance: <span className='text-red-600'>{location.distance.toFixed(2)} km</span></p>
+                        </div>
+                    </ListItem>
+                ))}
+            </Sidebar>
+            <LoadScript googleMapsApiKey="AIzaSyBEHCdvSJx0OAfeOp-MkfXBXVMzOrH64OY">
+                <GoogleMap
+                    mapContainerStyle={mapContainerStyle}
+                    center={userLocation}
+                    zoom={8}
+                >
+                    <Marker
+                        position={userLocation}
+                        draggable={true}
+                        onDragEnd={handleDragEnd}
+                        icon={userMarkerIcon}
+                    />
+                    <Circle
+                        center={userLocation}
+                        radius={5000} 
+                        options={{
+                            fillColor: "rgba(0, 123, 255, 0.2)",
+                            strokeColor: "#007bff",
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            clickable: false,
+                            draggable: false,
+                            editable: false,
+                            visible: true
+                        }}
+                    />
+                    {locations.map(location => (
+                        <Marker
+                            key={location.id}
+                            position={{ lat: location.latitude, lng: location.longitude }}
+                            title={location.name}
+                        />
+                    ))}
+                </GoogleMap>
+            </LoadScript>
         </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    );
 }
