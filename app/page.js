@@ -1,25 +1,24 @@
 "use client";
 
+// pages/index.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { GoogleMap, LoadScript, Marker, Circle } from '@react-google-maps/api';
+import { GoogleMap, LoadScript, Marker, Circle, OverlayView } from '@react-google-maps/api';
 import styled from '@emotion/styled';
-
 
 export function haversineDistance(lat1, lon1, lat2, lon2) {
     const toRadians = (degree) => (degree * Math.PI) / 180;
-    const R = 6371; 
+    const R = 6371; // Radius of the Earth in km
     const dLat = toRadians(lat2 - lat1);
     const dLon = toRadians(lon2 - lon1);
     const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; 
-}
+    return R * c; // Distance in km
+  }
 
-
-const locations = [
+  const locations = [
     { "id": 1, "name": "Joe's Pizza", "latitude": 40.730610, "longitude": -73.935242 },
     { "id": 2, "name": "The Burger Joint", "latitude": 34.052235, "longitude": -118.243683 },
     { "id": 3, "name": "The Fish House", "latitude": 51.507351, "longitude": -0.127758 },
@@ -42,35 +41,29 @@ const locations = [
     { "id": 20, "name": "LA Street Tacos", "latitude": 34.052235, "longitude": -118.243683 }
 ];
 
+
 const mapContainerStyle = {
-    width: '100%',
-    height: '100vh',
+  width: 'auto',
+  height: '100vh',
 };
 
 const center = {
-    lat: 23.685,
-    lng: 90.3563,
+  lat: 23.685,
+  lng: 90.3563,
 };
 
 const Sidebar = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 300px;
-  height: 100%;
   background: white;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
   padding: 20px;
   overflow-y: auto;
-  z-index: 10;
-  background-color: seagreen;
 `;
 
 const ListItem = styled.div`
   margin-bottom: 15px;
   border: 1px solid #ddd;
   border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 `;
 
 const ListHeader = styled.h2`
@@ -80,37 +73,48 @@ const ListHeader = styled.h2`
 `;
 
 const userMarkerIcon = {
-    url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+  url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+};
+
+const markerLabelStyle = {
+  backgroundColor: "tomato",
+  fontWeight: "bold",
+  fontSize: "16px",
+  border: "1px solid black",
+  padding: "5px",
+  borderRadius: "3px",
+  width: "80px",
 };
 
 export default function Home() {
-    const [userLocation, setUserLocation] = useState(center);
-    const [closestLocations, setClosestLocations] = useState([]);
+  const [userLocation, setUserLocation] = useState(center);
+  const [closestLocations, setClosestLocations] = useState([]);
 
-    const updateClosestLocations = useCallback((lat, lng) => {
-        const distances = locations.map(location => ({
-            ...location,
-            distance: haversineDistance(lat, lng, location.latitude, location.longitude)
-        }));
-        distances.sort((a, b) => a.distance - b.distance);
-        setClosestLocations(distances.slice(0, 5));
-    }, []);
+  const updateClosestLocations = useCallback((lat, lng) => {
+    const distances = locations.map(location => ({
+      ...location,
+      distance: haversineDistance(lat, lng, location.latitude, location.longitude)
+    }));
+    distances.sort((a, b) => a.distance - b.distance);
+    setClosestLocations(distances.slice(0, 5));
+  }, []);
 
-    useEffect(() => {
-        updateClosestLocations(userLocation.lat, userLocation.lng);
-    }, [userLocation, updateClosestLocations]);
+  useEffect(() => {
+    updateClosestLocations(userLocation.lat, userLocation.lng);
+  }, [userLocation, updateClosestLocations]);
 
-    const handleDragEnd = (e) => {
-        const newLat = e.latLng.lat();
-        const newLng = e.latLng.lng();
-        setUserLocation({ lat: newLat, lng: newLng });
-        updateClosestLocations(newLat, newLng);
-    };
+  const handleDragEnd = (e) => {
+    const newLat = e.latLng.lat();
+    const newLng = e.latLng.lng();
+    setUserLocation({ lat: newLat, lng: newLng });
+    updateClosestLocations(newLat, newLng);
+  };
 
-    return (
-        <div style={{ position: 'relative', display: 'flex' }}>
-            <Sidebar>
-                <ListHeader><p className='font-bold'>Closest Locations</p></ListHeader>
+  return (
+    <div className='grid grid-cols-3 gap-4'>
+      <div>
+        <Sidebar>
+        <ListHeader><p className='font-bold'>Closest Locations</p></ListHeader>
                 {closestLocations.map(location => (
                     <ListItem key={location.id}>
                         <div className='bg-gray-200 p-5'>
@@ -119,42 +123,49 @@ export default function Home() {
                         </div>
                     </ListItem>
                 ))}
-            </Sidebar>
-            <LoadScript googleMapsApiKey="AIzaSyBEHCdvSJx0OAfeOp-MkfXBXVMzOrH64OY">
-                <GoogleMap
-                    mapContainerStyle={mapContainerStyle}
-                    center={userLocation}
-                    zoom={8}
-                >
-                    <Marker
-                        position={userLocation}
-                        draggable={true}
-                        onDragEnd={handleDragEnd}
-                        icon={userMarkerIcon}
-                    />
-                    <Circle
-                        center={userLocation}
-                        radius={5000} 
-                        options={{
-                            fillColor: "rgba(0, 123, 255, 0.2)",
-                            strokeColor: "#007bff",
-                            strokeOpacity: 0.8,
-                            strokeWeight: 2,
-                            clickable: false,
-                            draggable: false,
-                            editable: false,
-                            visible: true
-                        }}
-                    />
-                    {locations.map(location => (
-                        <Marker
-                            key={location.id}
-                            position={{ lat: location.latitude, lng: location.longitude }}
-                            title={location.name}
-                        />
-                    ))}
-                </GoogleMap>
-            </LoadScript>
-        </div>
-    );
+        </Sidebar>
+      </div>
+      <div className='col-span-2'>
+        <LoadScript googleMapsApiKey="AIzaSyBEHCdvSJx0OAfeOp-MkfXBXVMzOrH64OY">
+          <GoogleMap
+            mapContainerStyle={mapContainerStyle}
+            center={userLocation}
+            zoom={8}
+          >
+            <Marker
+              position={userLocation}
+              draggable={true}
+              onDragEnd={handleDragEnd}
+              icon={userMarkerIcon}
+            />
+            <Circle
+              center={userLocation}
+              radius={1000} // Radius in meters
+              options={{
+                fillColor: "rgba(222, 123, 255, 0.2)",
+                strokeColor: "#007bff",
+                strokeOpacity: 0.8,
+                strokeWeight: 5,
+                clickable: false,
+                draggable: false,
+                editable: false,
+                visible: true
+              }}
+            />
+            {closestLocations.map(location => (
+              <OverlayView
+                key={location.id}
+                position={{ lat: location.latitude, lng: location.longitude }}
+                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+              >
+                <div style={markerLabelStyle}>
+                  {location.name}
+                </div>
+              </OverlayView>
+            ))}
+          </GoogleMap>
+        </LoadScript>
+      </div>
+    </div>
+  );
 }
